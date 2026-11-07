@@ -1,0 +1,10 @@
+name: narrow_aisle_6m
+description: A 6.0 m aisle instead of 7.3 m, so less room to swing into the stall. Refusing or aborting cleanly is acceptable.
+flows: [search]
+overrides:
+  scenario: {aisle_width: 6.0}
+  safety: {enabled: true}
+expect:     # set before measuring
+  outcome_any_of: [parked_in_target, parked_elsewhere, no_path, no_slot, aborted]
+  contacts: 0
+  completed_meets_criteria: true

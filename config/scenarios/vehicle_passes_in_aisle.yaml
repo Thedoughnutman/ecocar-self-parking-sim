@@ -1,0 +1,13 @@
+name: vehicle_passes_in_aisle
+description: A vehicle drives past in the far lane of the aisle during the maneuver. Its driver yields if the car is in the way.
+flows: [single_stall, search]
+actors:
+  - name: passer
+    kind: vehicle
+    frame: target
+    path: [[-25.0, 5.9], [25.0, 5.9]]   # the aisle's center is v = 3.65, its far side v = 7.3
+    speed_kph: 10.0
+    trigger: {state: MANEUVERING, delay_s: 1.0}
+    on_end: leave
+expect:
+  actor_collisions: 0

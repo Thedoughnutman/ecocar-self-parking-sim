@@ -1,0 +1,13 @@
+name: neighbor_over_line
+description: >
+  The car next to the target stall is parked 0.3 m over the line into it. Centered in the stall the body would
+  have about 0.06 m to that car, against a 0.30 m limit, so a safe car must not park in this stall.
+flows: [search]
+overrides:
+  safety: {enabled: true}
+obstacles:
+  - {kind: neighbor_over_line, side: far, over_line_m: 0.3}
+expect:     # set before measuring
+  outcome_any_of: [parked_elsewhere, no_path, no_slot, aborted]
+  contacts: 0
+  completed_meets_criteria: true

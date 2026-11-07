@@ -1,0 +1,43 @@
+# Cadillac LYRIQ vehicle parameters for the parking sandbox.
+# Published figures (GM / dealer spec sheets) are marked [pub].
+# Derived or placeholder values are marked [est] -- replace with measured data.
+
+geometry:
+  wheelbase: 3.094          # m [pub] 121.8 in
+  length: 4.996             # m [pub] 196.7 in
+  width: 1.977              # m [pub] body, without mirrors
+  width_mirrors: 2.207      # m [pub] (reported only; footprint uses body width)
+  height: 1.623             # m [pub] visualization only, the planner works in 2D
+  track: 1.674              # m [pub] front = rear
+  front_overhang: 0.951     # m [est] total overhang 1.902 m split evenly
+  rear_overhang: 0.951      # m [est]
+  turning_circle_curb: 12.1 # m [pub] curb-to-curb diameter (39.7 ft)
+  tire_width: 0.275         # m [pub] 275-section tires
+
+steering:
+  # Max road-wheel angle is derived from the curb-to-curb turning circle
+  # (see vehicle.py: max_steer_from_turning_circle). Leave null to derive.
+  max_road_wheel_angle_deg: null   # [est] derived ~= 36 deg
+  planner_steer_fraction: 0.92     # planner uses 92% of lock, keeps authority for tracking
+  rate_limit_deg_s: 35.0           # [est] road-wheel deg/s (~550 deg/s at handwheel, ratio ~16)
+  time_constant_s: 0.10            # [est] first-order lag of the EPS angle loop
+  dead_time_s: 0.10                # [est] transport delay (CAN 10 ms + actuator node + EPS)
+
+longitudinal:
+  max_speed_mps: 1.0        # 3.6 km/h maneuver cap (pass criterion is <= 5 km/h)
+  accel_mps2: 0.5
+  decel_mps2: 0.6
+  speed_time_constant_s: 0.30  # [est] lag from speed request to wheel speed
+  shift_time_s: 1.0            # [est] D<->R change incl. stop-and-hold
+
+brake:                         # only acts when asked: a run that never brakes doesn't see this
+  dead_time_s: 0.10            # [est] request to first pressure
+  jerk_mps3: 15.0              # [est] how fast the deceleration builds
+  service_decel_mps2: 2.0      # [est] safety stop: obstacle in the path, abort, fault
+  emergency_decel_mps2: 5.0    # [est] time-to-collision below safety.ttc_emergency_s
+
+realism:                       # plant effects, off by default so baselines don't move
+  tire_scrub_gain: 0.0         # m/s of sideways slip per rad of road-wheel angle [est] 0.05 is a visible effect
+  tire_scrub_crawl_speed: 0.5  # m/s [est] scrub fades to nothing at this speed
+  tire_scrub_min_steer_rate_deg_s: 0.5   # deg/s [est] at standstill, only wheels being turned scrub
+  road_grade_percent: 0.0      # % [est] rise along map +x; positive slows a car driving +x. Brakes hold it at speed command 0

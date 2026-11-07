@@ -1,0 +1,18 @@
+name: pedestrian_walks_into_slot
+description: A pedestrian walks along the back of the row and into the slot mid-maneuver, waits, then leaves.
+flows: [single_stall, search]
+actors:
+  - name: walker
+    kind: pedestrian
+    frame: target               # u along the aisle, v out of the stall; the back of the stall is v = -5.5
+    path: [[-1.6, -5.2], [0.0, -5.2], [0.0, -2.5], [0.0, -5.2], [1.6, -5.2]]
+    speed_mps: 1.2
+    trigger: {state: MANEUVERING, delay_s: 2.0}
+    stops:
+      - {at_m: 4.3, duration_s: 6.0}    # standing in the slot
+    on_end: leave
+expect:
+  outcome: completed
+  meets_criteria: true
+  actor_collisions: 0
+  min_actor_distance_m: 0.5

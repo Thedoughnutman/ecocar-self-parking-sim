@@ -1,0 +1,8 @@
+name: steering_not_followed
+description: Mid-maneuver the road wheels stop answering steering commands.
+flows: [single_stall, search]
+events:
+  - {after_state: MANEUVERING, delay_s: 3.0, set: {steer_not_followed: true}}
+expect:
+  outcome_one_of: [completed, fault]
+  no_contact: true

@@ -1,0 +1,12 @@
+name: narrow_stall_2p4m
+description: >
+  2.4 m stalls instead of 2.7 m. A centered body has about 0.43 m to a centered neighbor, less with parking jitter, so
+  the 0.30 m limit can't always be met. Refusing or aborting cleanly is then correct.
+flows: [search]
+overrides:
+  scenario: {stall_width: 2.4}
+  safety: {enabled: true}
+expect:     # set before measuring
+  outcome_any_of: [parked_in_target, parked_elsewhere, no_path, no_slot, aborted]
+  contacts: 0
+  completed_meets_criteria: true

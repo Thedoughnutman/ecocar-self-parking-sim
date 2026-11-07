@@ -1,2 +1,13 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Reference CSVs are compared BYTE FOR BYTE against freshly generated runs
+# (tests/data/baseline_monte_carlo_200.csv is the baseline reference; a test checks the
+# first 10 seeds). Never translate their line endings: a CRLF checkout on Windows would
+# corrupt them and every baseline comparison would fail for no real reason.
+tests/data/*.csv -text
+
+# Binary run artifacts, should they ever be committed deliberately.
+*.mcap binary
+*.gif binary
+*.png binary

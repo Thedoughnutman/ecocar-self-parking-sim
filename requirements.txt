@@ -1,0 +1,15 @@
+numpy
+scipy
+matplotlib
+pyyaml
+pytest
+pillow
+
+# Optional dev dependencies: MCAP export for Foxglove (park_sim/mcap_export.py).
+# park_sim/ imports without them. Their tests are skipped if they are not installed.
+mcap>=1.6
+foxglove-schemas-protobuf>=0.4
+# Optional: live streaming to Foxglove over a local WebSocket.
+foxglove-sdk>=0.30
+# Optional: the window of scripts/interactive.py.
+pygame-ce>=2.5

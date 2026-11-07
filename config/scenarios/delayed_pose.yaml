@@ -1,0 +1,10 @@
+name: delayed_pose
+description: Mid-maneuver the localization output falls 0.5 s behind, past its 0.2 s limit.
+flows: [single_stall]
+overrides:
+  localization: {estimator: gnss_ins}   # truth has no latency to change
+events:
+  - {after_state: MANEUVERING, delay_s: 3.0, set: {pose_delay_s: 0.5}}
+expect:
+  outcome: aborted
+  abort_reason: sensor_stale

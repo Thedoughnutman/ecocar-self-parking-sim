@@ -1,0 +1,242 @@
+{
+  "configById": {
+    "3D!parking": {
+      "cameraState": {
+        "perspective": false,
+        "distance": 75,
+        "phi": 0,
+        "thetaOffset": 0,
+        "targetOffset": [
+          27.0,
+          9.15,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {},
+      "topics": {
+        "/lot": {
+          "visible": true
+        },
+        "/plan": {
+          "visible": true
+        },
+        "/ego": {
+          "visible": true
+        },
+        "/trail": {
+          "visible": true
+        },
+        "/slots": {
+          "visible": true
+        },
+        "/sensors/camera_footprints": {
+          "visible": true
+        },
+        "/sensors/lines": {
+          "visible": true
+        },
+        "/sensors/ultrasonic": {
+          "visible": true
+        },
+        "/sensors/lidar": {
+          "visible": true
+        },
+        "/actors": {
+          "visible": true
+        },
+        "/safety_sweep": {
+          "visible": true
+        },
+        "/sensed_map": {
+          "visible": true
+        }
+      },
+      "layers": {},
+      "publish": {},
+      "imageMode": {},
+      "foxglovePanelTitle": "Aisle (top-down)"
+    },
+    "StateTransitions!controller": {
+      "paths": [
+        {
+          "value": "/supervisor.state",
+          "timestampMethod": "receiveTime",
+          "label": "supervisor"
+        },
+        {
+          "value": "/state.controller_state",
+          "timestampMethod": "receiveTime",
+          "label": "controller"
+        }
+      ],
+      "isSynced": true,
+      "foxglovePanelTitle": "Supervisor and controller state"
+    },
+    "Plot!steering": {
+      "paths": [
+        {
+          "value": "/state.steer_cmd_deg",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "command"
+        },
+        {
+          "value": "/state.delta_deg",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "actual"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "foxglovePanelTitle": "Road-wheel angle [deg]"
+    },
+    "Plot!speed": {
+      "paths": [
+        {
+          "value": "/state.speed_cmd",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "command"
+        },
+        {
+          "value": "/state.v",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "actual"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "foxglovePanelTitle": "Speed [m/s]"
+    },
+    "Plot!distance": {
+      "paths": [
+        {
+          "value": "/state.distance_to_go",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "distance to go"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "foxglovePanelTitle": "Distance to go [m]"
+    },
+    "RawMessages!state": {
+      "topicPath": "/state",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "fontSize": 12
+    },
+    "RawMessages!safety": {
+      "topicPath": "/safety",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "fontSize": 12
+    },
+    "Plot!safety": {
+      "paths": [
+        {
+          "value": "/safety.ttc_s",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "time to collision [s]"
+        },
+        {
+          "value": "/safety.gap_m",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "gap [m]"
+        },
+        {
+          "value": "/safety.horizon_m",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "sweep length [m]"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "foxglovePanelTitle": "Safety monitor"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 60,
+    "first": {
+      "direction": "column",
+      "splitPercentage": 78,
+      "first": "3D!parking",
+      "second": "StateTransitions!controller"
+    },
+    "second": {
+      "direction": "column",
+      "splitPercentage": 25,
+      "first": "Plot!steering",
+      "second": {
+        "direction": "column",
+        "splitPercentage": 33,
+        "first": "Plot!speed",
+        "second": {
+          "direction": "column",
+          "splitPercentage": 40,
+          "first": {
+            "direction": "column",
+            "splitPercentage": 50,
+            "first": "Plot!distance",
+            "second": "Plot!safety"
+          },
+          "second": {
+            "direction": "row",
+            "splitPercentage": 50,
+            "first": "RawMessages!state",
+            "second": "RawMessages!safety"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+name: pedestrian_stays
+description: A pedestrian walks into the slot mid-maneuver and stays there.
+flows: [single_stall, search]
+actors:
+  - name: stayer
+    kind: pedestrian
+    frame: target
+    path: [[-1.6, -5.2], [0.0, -5.2], [0.0, -2.5]]
+    speed_mps: 1.2
+    trigger: {state: MANEUVERING, delay_s: 2.0}
+expect:
+  outcome: aborted
+  abort_reason: obstacle_timeout
+  actor_collisions: 0

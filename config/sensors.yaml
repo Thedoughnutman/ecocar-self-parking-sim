@@ -1,0 +1,70 @@
+# Synthetic 2D sensors (park_sim/sensors/). Every value here is a placeholder [est]:
+# mount poses, rates and noise all need replacing with the real sensor set and measurements.
+# Mount poses are in the vehicle frame: rear-axle origin, x forward, y left, yaw_deg CCW from x.
+# Body corners for reference: x -0.951 to 4.045, y +/-0.9885.
+
+line_camera:
+  enabled: true
+  rate_hz: 30.0                 # [est]
+  footprint:                    # [est] ground rectangle in the camera's frame; a camera entry can override it
+    width: 5.0                  # m, across the viewing direction
+    depth: 4.0                  # m, along the viewing direction
+    near: -0.5                  # m, footprint starts this far from the mount (negative = behind it, under the body)
+  cameras:                      # [est] surround view. No front camera: it is permanently out on this LYRIQ
+    - {name: cam_rear, x: -0.9, y: 0.0, yaw_deg: 180.0}
+    - {name: cam_left, x: 1.55, y: 0.95, yaw_deg: 90.0}
+    - {name: cam_right, x: 1.55, y: -0.95, yaw_deg: -90.0}
+  sample_step: 0.1              # m [est] spacing of the visibility test along a line; part-hidden ends land on this grid
+  min_segment_length: 0.1       # m [est] shorter visible pieces are dropped
+  noise:
+    enabled: true
+    std: 0.03                   # m [est] on each endpoint coordinate, new every frame
+  faded:                        # paint wear: fixed for the run and shared by all cameras
+    enabled: true
+    p_faded: 0.05               # [est] chance a whole line is missing
+  gaps:                         # paint wear: fixed for the run and shared by all cameras
+    enabled: true
+    rate_per_m: 0.1             # [est] gaps per meter of line
+    length: [0.1, 0.4]          # m [est]
+  occlusion:
+    parked_cars: true           # line parts with a parked car between them and the camera
+    ego_body: true              # line parts under the ego car
+  false_positives:              # shadows, cracks: new every frame
+    enabled: true
+    fp_rate: 1.0                # per second per camera [est]
+    length: [0.2, 0.6]          # m [est]
+
+ultrasonic:
+  enabled: true
+  rate_hz: 15.0                 # [est]
+  cone_deg: 60.0                # [est] full width
+  range: [0.2, 4.5]             # m [est] an obstacle nearer than the minimum reads as none (blind zone)
+  noise_std: 0.02               # m [est]
+  dropout_prob: 0.01            # [est] chance a reading comes back empty
+  sensors:                      # [est] 6 front and 6 rear, including 2 side-corner ones at each end
+    - {name: uss_fl_corner, x: 3.60, y: 0.98, yaw_deg: 80.0}
+    - {name: uss_fl_outer, x: 3.90, y: 0.75, yaw_deg: 35.0}
+    - {name: uss_fl_inner, x: 4.04, y: 0.27, yaw_deg: 8.0}
+    - {name: uss_fr_inner, x: 4.04, y: -0.27, yaw_deg: -8.0}
+    - {name: uss_fr_outer, x: 3.90, y: -0.75, yaw_deg: -35.0}
+    - {name: uss_fr_corner, x: 3.60, y: -0.98, yaw_deg: -80.0}
+    - {name: uss_rl_corner, x: -0.60, y: 0.98, yaw_deg: 100.0}
+    - {name: uss_rl_outer, x: -0.85, y: 0.75, yaw_deg: 145.0}
+    - {name: uss_rl_inner, x: -0.95, y: 0.27, yaw_deg: 172.0}
+    - {name: uss_rr_inner, x: -0.95, y: -0.27, yaw_deg: -172.0}
+    - {name: uss_rr_outer, x: -0.85, y: -0.75, yaw_deg: -145.0}
+    - {name: uss_rr_corner, x: -0.60, y: -0.98, yaw_deg: -100.0}
+  side_sensors:                 # [est] for space-between-cars detection during search; settings override the above
+    - {name: uss_side_left, x: 2.2, y: 0.98, yaw_deg: 90.0, cone_deg: 30.0}     # narrow, to see the gap between cars
+    - {name: uss_side_right, x: 2.2, y: -0.98, yaw_deg: -90.0, cone_deg: 30.0}
+
+lidar:
+  enabled: false                # optional
+  name: lidar
+  x: 1.5                        # [est] roof center; the ego body does not block its rays
+  y: 0.0                        # [est]
+  yaw_deg: 0.0                  # [est]
+  rate_hz: 10.0                 # [est]
+  beams: 720                    # [est] over 360 deg
+  range: 30.0                   # m [est]
+  noise_std: 0.02               # m [est]

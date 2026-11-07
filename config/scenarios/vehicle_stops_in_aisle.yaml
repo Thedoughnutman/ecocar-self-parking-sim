@@ -1,0 +1,14 @@
+name: vehicle_stops_in_aisle
+description: A vehicle comes down the aisle and stops for good next to the slot. The planner sees it once it has stopped.
+flows: [single_stall]
+actors:
+  - name: blocker
+    kind: vehicle
+    frame: target
+    path: [[-25.0, 5.9], [25.0, 5.9]]
+    speed_kph: 10.0
+    trigger: {state: MANEUVERING, delay_s: 0.5}
+    stops:
+      - {at_m: 20.0, duration_s: null}
+expect:
+  actor_collisions: 0

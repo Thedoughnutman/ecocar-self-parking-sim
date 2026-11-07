@@ -1,0 +1,34 @@
+# Safety gates: the bar every change has to clear. scripts/check_gates.py, park_sim/gates.py.
+# A gate that fails today stays failing. Never loosen a threshold, change a seed set or change the criteria
+# to make one pass; tests/test_gates.py holds these values, so changing one takes a deliberate edit there too.
+
+run_sets:                     # the same seeding as monte_carlo.py
+  baseline: {flow: single_stall, seeds: {first: 0, count: 200}}
+  search_ideal: {flow: search, detector: ideal, seeds: {first: 0, count: 200}}
+  search_fused: {flow: search, detector: fused, seeds: {first: 0, count: 200}}
+  search_empty: {flow: search, detector: fused, occupancy: 0.0, seeds: {first: 0, count: 100}}    # no cars: painted lines only
+
+safety:                       # every scenario file with actors, in each flow it has
+  seeds: {first: 1, count: 20}
+  scenarios: [pedestrian_walks_into_slot, pedestrian_stays, vehicle_passes_in_aisle, vehicle_stops_in_aisle]
+  single_stall_detector: ideal    # a single-stall run doesn't use a detector; this only labels it
+  search_detectors: [ideal, fused]
+
+thresholds:
+  pass_rate_min:
+    baseline: 0.99
+    search_ideal: 0.99
+    search_fused: 0.95
+    search_empty: 0.95
+  body_contacts_max: 0       # in each run set; clearance 0.0 m counts as contact
+  lowest_clearance_min_m: 0.30    # m, in each run set. Same as criteria.min_clearance; a test checks they agree
+  heading_err_p95_max_deg: 1.5    # deg, 95th percentile of |final heading error| over completed runs, in each run set
+  actor_collisions_max: 0     # over all the safety runs
+  default_maneuver: reverse_in
+  forward_camera_within_deg: 90.0   # deg, a camera axis nearer +x than this counts as forward-facing. Side cameras sit at exactly 90
+
+planning_budget:              # replaces the wall-clock limits in gate runs, so CPU load can't change a result
+  max_expansions: 400         # [est] about what 2 s buys on the dev machine (about 215 expansions/s, out/scratch_10/)
+  wall_clock_limit_s: 120.0   # s, only so a hung plan can't stall the run; far past what 400 expansions need
+
+workers: 4                    # with the budget this affects run time only

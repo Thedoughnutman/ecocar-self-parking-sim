@@ -1,0 +1,8 @@
+name: ultrasonic_dropout
+description: Mid-maneuver the ultrasonics stop publishing.
+flows: [single_stall, search]
+events:
+  - {after_state: MANEUVERING, delay_s: 3.0, set: {sensor_dropout: [ultrasonic]}}
+expect:
+  outcome: aborted
+  abort_reason: sensor_stale

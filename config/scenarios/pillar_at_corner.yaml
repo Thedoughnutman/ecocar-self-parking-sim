@@ -1,0 +1,13 @@
+name: pillar_at_corner
+description: >
+  A pillar at the aisle-side corner of the target stall, on the +x side the car's tail swings in past. Outside the
+  stall lines, so parking there is allowed if the limit can be met. Treated like the lot's curbs: the planner knows it.
+flows: [search]
+overrides:
+  safety: {enabled: true}
+obstacles:
+  - {kind: pillar, side: far, known_to_planner: true}
+expect:     # set before measuring
+  outcome_any_of: [parked_in_target, parked_elsewhere, no_path, no_slot, aborted]
+  contacts: 0
+  completed_meets_criteria: true

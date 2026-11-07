@@ -1,0 +1,399 @@
+# Scenario, planner, controller and pass criteria for the 2D parking sandbox.
+
+scenario:
+  type: perpendicular
+  maneuver: reverse_in        # reverse_in | head_in
+  stall_width: 2.7            # m, common US stall
+  stall_depth: 5.5            # m
+  aisle_width: 7.3            # m, two-way aisle
+  n_stalls: 7
+  target_stall: 3             # 0-based index
+  neighbors_occupied: true    # worst case: cars on both sides of target
+  occupancy_prob: 0.7         # other stalls
+  opposite_row: true          # parked cars across the aisle
+  curb_gap: 0.3               # m behind the stall end line
+  parked_car: {length: 4.9, width: 1.95, lateral_jitter: 0.15, depth_jitter: 0.15, yaw_jitter_deg: 2.0}
+  grid_resolution: 0.05       # m, distance field
+  markings: {stall_lines: true, rear_line: true, aisle_ticks: true, tick_length: 0.5}   # m; paint, no effect on planning
+
+start_region:                 # car has just driven past the target stall
+  dx_from_stall: [-1.0, 6.0]  # m, rear-axle x relative to stall center
+  dy_from_aisle_center: [-0.8, 0.8]
+  yaw_deg: [-8.0, 8.0]        # heading along the aisle (+x)
+
+aisle_lot:                    # make_aisle_lot; stall sizes, parked cars and curb gap come from scenario:
+  stalls_per_row: 20
+  occupancy_prob: 0.85        # chance each stall holds a car
+  guaranteed_free: [2, 3]     # at least this many stalls stay free (drawn per lot), whatever the occupancy
+  entry_distance: 8.0         # m, rear axle starts this far before the first stall
+  exit_margin: 15.0           # m of open aisle after the last stall, room to stop and maneuver
+  map_margin: 6.0             # m of open map behind the start pose
+  markings: {stall_lines: true, rear_line: true, aisle_ticks: true, tick_length: 0.5}   # m; paint, no effect on planning
+
+lot_objects:                  # scenario.add_target_obstacles; a config/scenarios/ file says where they go. Every number [est]
+  pillar:
+    size_m: 0.5               # m, square
+    aisle_offset_m: 0.1       # m, its center past the stall's aisle-side line. Parked cars reach about 0.3 m short of that line
+  cart:
+    length_m: 0.9
+    width_m: 0.6
+    across_range_m: [-0.6, 0.6]   # m, center from the stall centerline, drawn per run
+    depth_range_m: [1.0, 4.5]     # m, center from the aisle-side line, drawn per run. Always under a parked car's body
+
+localization:                 # park_sim/localization.py, docs/localization.md
+  estimator: auto             # auto | truth | white | odometry | gnss_ins; auto = truth, or odometry with a sensor-based detector
+  latency_s: 0.0              # s [est] odometry and gnss_ins output delay. Off: detectors don't match pose to sensor time yet (docs/localization.md)
+  white:                      # used by `estimator: white` when --noise-xy / --noise-yaw aren't given
+    noise_xy: 0.03            # m [est]
+    noise_yaw_deg: 0.3        # deg [est]
+  odometry:                   # each error is off at 0
+    rate_hz: 50.0             # [est] wheel speed and yaw rate
+    wheel_source: rear_average    # rear_average | four_wheel
+    wheel_scale_error: 0.005  # [est] size of the error, 0.5%; sign drawn per run
+    wheel_noise_std: 0.01     # m/s [est] per wheel, per sample
+    wheel_quantization: 0.01  # m/s [est]
+    yaw_rate_bias_deg_s: 0.1  # deg/s [est] size of the bias; sign drawn per run
+    yaw_rate_noise_std_deg_s: 0.05    # deg/s [est]
+    yaw_rate_quantization_deg_s: 0.01 # deg/s [est]
+    standstill_calibration: true  # wheels stopped: hold heading, average the gyro and remove that as bias
+    standstill_min_time_s: 0.5    # s [est] averaging needed before the bias is removed
+  gnss_ins:                   # all [est]: replace with OxTS spec values
+    rate_hz: 50.0             # [est]
+    position_sigma_m: 0.02    # m [est] Gauss-Markov, per axis
+    position_tau_s: 30.0      # s [est]
+    heading_sigma_deg: 0.05   # deg [est] keeps normal error under 0.2 deg (4 sigma)
+    heading_tau_s: 30.0       # s [est]
+    degraded:
+      rate_per_s: 0.005       # [est] chance per second that one starts (one per 200 s); 0 = off
+      duration_s: 6.0         # s [est]
+      position_growth_m_s: 0.01   # m/s [est]
+      heading_growth_deg_s: 0.01  # deg/s [est]
+      recovery_tau_s: 2.0     # s [est] the extra error decays with this afterward
+      windows: []             # [[start_s, end_s], ...] degraded periods at fixed times
+  sweep:                      # scripts/sweep_localization.py
+    yaw_rate_bias_deg_s: [0.02, 0.05, 0.1, 0.2, 0.5]
+    wheel_scale_error: [0.002, 0.005, 0.01, 0.02]
+    gnss_error_factor: [0.5, 1.0, 2.0, 5.0, 10.0]     # multiplies position_sigma_m and heading_sigma_deg
+    pass_rate_floor: 0.95
+
+slot_detection:               # docs/slot_detection.md
+  offer_max_distance_m: 15.0  # m [est] a slot further from the car than this isn't offered, until it's near again
+  offer_max_driven_m: 30.0    # m [est] nor one the car has driven this far since last seeing: position error grows with distance driven
+  detector: fused             # ideal | lines | space | fused (lines first, space fallback)
+  detection_range: 6.0        # m, ideal only: whole opening within this of the car's side
+  pass_margin: 1.0            # m, rear axle past the far end of the opening before a slot is offered
+  fit_period_s: 0.2           # s [est] how often slots are fitted (one detection per fit)
+  window_s: 0.6               # s [est] camera segments used per fit
+  confidence_lines: 0.9       # [est]
+  confidence_space: 0.5       # [est]
+  lines:
+    merge_angle_deg: 10.0     # [est] collinear merge: direction difference
+    merge_offset: 0.12        # m [est] collinear merge: offset between lines
+    merge_gap: 0.6            # m [est] collinear merge: gap along the line
+    min_segments: 3           # [est] a line needs this many segments; removes one-off false positives
+    end_clip_margin: 0.1      # m [est] an end this near the footprint or body edge is a cut, not a real end
+    min_divider_length: 0.5   # m [est]
+    max_divider_skew_deg: 25.0    # [est] from square to the direction of travel
+    spacing: [2.3, 3.2]       # m, stall dividers this far apart make a slot
+    parallel_deg: 6.0         # [est] between the two dividers of a slot
+    end_align: 0.3            # m [est] between their aisle-side ends
+    junction_angle_deg: 12.0  # [est] crossing line (tick) vs square to the divider
+    junction_radius: 0.3      # m [est] crossing line to the divider's aisle end
+    standard_depth: 5.5       # m, assumed if no rear line is seen
+    depth_range: [4.0, 7.0]   # m [est] a rear line must be this far from the entry
+    sigma_lateral: 0.02       # m [est] fitted corner error across the divider
+    sigma_junction: 0.02      # m [est] along the divider, with a crossing line
+    sigma_end: 0.05           # m [est] along the divider, from its end alone
+    sigma_rear_lateral: 0.05  # m [est] rear corners, across the divider
+    sigma_rear_seen: 0.03     # m [est] rear corners, along the divider, rear line seen
+    sigma_rear_assumed: 0.3   # m [est] rear corners, along the divider, standard depth assumed
+  occupancy:
+    margin: 0.1               # m, a slot is shrunk by this before testing returns
+    entry_margin: 0.05        # m [est] same, at the opening
+    neighbor_gap: 0.25        # m [est] car edge to stall line next door; sets how far cone spread can reach in
+    max_cone_deg: 40.0        # [est] wider ultrasonic cones are too blurred to place a return in a slot
+    axis_tolerance_deg: 20.0  # [est] the sensor must look roughly into the slot
+    min_readings: 3           # [est] readings across the slot before it can be called free
+    min_hits: 2               # [est] returns inside before it is called occupied
+    history_s: 30.0           # s, ultrasonic readings kept
+    lidar_scans: 20           # lidar scans kept
+  space:
+    stall_width: 2.7          # m [est] slot width assumed in a lot with no lines
+    min_width: 2.3            # m, narrower gaps are not offered
+    depth: 5.5                # m [est] the sensors cannot reach the back of the stall
+    neighbor_clearance: 0.375 # m [est] parked car's edge to its own stall line
+    bumper_setback: 0.3       # m [est] stall entry to the bumper line
+    min_open_length: 0.5      # m [est] shorter open stretches are dropouts
+    min_wall_readings: 2      # [est] readings on a car before an open stretch counts as a gap
+    tail_readings: 12         # [est] readings on each neighbor used for the bumper line
+    sigma_width: 0.15         # m [est] corner error along the aisle
+    sigma_depth: 0.1          # m [est] corner error across the aisle
+  tracker:
+    confirm_detections: 3     # consistent detections to confirm a track
+    unconfirmed_timeout_s: 1.5  # s [est] an unconfirmed track with no detection for this long is dropped
+    gate_distance: 0.5        # m [est] detection center to track center
+    gate_heading_deg: 10.0    # [est]
+    process_noise: 0.01       # m per sqrt(s) [est] lets later views correct odometry drift
+  refinement:
+    replan_threshold_m: 0.05
+    replan_threshold_deg: 1.0
+    max_replans: 2            # [est] per run
+    min_replan_interval_s: 3.0  # s [est]
+    line_min_length: 0.4      # m [est]
+    line_angle_deg: 6.0       # [est] line vs slot axis
+    line_radius: 0.3          # m [est] line to the slot edge it is matched to
+    line_reach: 1.0           # m [est] a divider corrects only corners this near the stretch of it in view
+    sigma_line: 0.03          # m [est] measurement from a matched line
+    sigma_other_side: 0.05    # m [est] the unseen side, placed one slot width from the seen one
+
+search:                       # search run: park_sim/driver.py, simulator.run_search
+  speed_kph: 10.0
+  retry_after_driven_m: 6.0   # m [est] a slot with no path can be tried again once the scripted driver has driven this far. It's about two stalls, so it tries others first
+  policy: select_first        # select_first | select_nearest_after_passing | select_by_index | never_select
+  slot_index: null            # slot id for select_by_index (with a sensor-based detector, ids are track numbers)
+  after_x: null               # m, select_first_after takes the first slot with its center past this
+  row_y: null                 # m, a y in the row select_first_after should stay in (until the end of the aisle); null = both rows
+  reaction_time_s: 0.5        # s [est] from a slot being offered to the driver selecting it
+  confirm_delay_s: 1.0        # s [est] from the confirm prompt to pressing it
+  brake_decel: 2.5            # m/s^2 [est] firm driver braking (controller keeps longitudinal.decel_mps2)
+  lane_lookahead_min: 5.0     # m [est] lane-keeping target distance
+  lane_lookahead_s: 1.0       # s [est] target distance = max(min, this * |v|)
+  aisle_end_margin: 2.0       # m, rear axle past the last stall before the driver brakes
+  planning_time_limit_s: 2.0  # s wall clock, a slower plan counts as no path
+  timeout_s: 240.0            # s, whole run
+  monte_carlo:                # monte_carlo.py --mode search draws uniformly from these
+    occupancy_prob: [0.5, 0.95]
+    speed_kph: [5.0, 15.0]
+
+planner:
+  map: sensed                 # sensed | true_lot. Search flow only: a single-stall run plans on the lot it's given. sensed_map: below, docs/sensed_map.md. true_lot hands the planner ground truth
+  xy_resolution: 0.25         # m
+  yaw_bins: 72                # 5 deg
+  n_steer: 7                  # steering samples per direction
+  arc_length: 0.75            # m per expansion
+  collision_margin: 0.35      # m, planning buffer around body (criteria: 0.30 executed)
+  reverse_cost: 1.2
+  switch_cost: 6.0            # m-equivalent penalty per direction change
+  steer_cost: 0.3
+  steer_change_cost: 0.6
+  analytic_every: 5           # try a Reeds-Shepp shot every N expansions
+  max_expansions: 40000
+  final_straight: 1.5         # m, straight run into the stall (lets heading settle)
+
+sensed_map:                   # park_sim/sensed_map.py, used with planner.map: sensed; every number [est]
+  resolution_m: 0.1           # m per cell
+  half_extent_m: [120.0, 60.0]  # m, x and y of the grid around the first pose; evidence past this is lost
+  planning_window_m: 30.0     # m, the planner gets this much around the car and the goal; further data has drifted most
+  log_odds:
+    hit: 0.6                  # per ultrasonic return on a cell
+    free: -0.4                # per ultrasonic reading that passes through a cell
+    camera_free: -0.2         # per camera frame seeing paint past a cell
+    camera_floor: -0.4        # the camera alone goes no lower, so a later return can still mark the cell
+    min: -2.0                 # limits, so old evidence can be overturned
+    max: 3.0
+  free_below: -0.3            # log-odds; below this a cell is free. One ultrasonic reading or two camera frames
+  occupied_above: 1.0         # log-odds; from this up a cell is occupied. Two returns on an unknown cell
+  hit_band_m: 0.1             # m, half-width of a return's arc
+  free_margin_m: 0.15         # m, a reading says free only this far short of its return (noise, cell size)
+  min_move_m: 0.1             # m a sensor or the body moves before it adds evidence again
+  min_turn_deg: 2.0           # deg, the same for turning
+  reading_change_m: 0.2       # m, a sensor standing still adds a reading if it changes this much
+  empty_readings: 2           # in a row from one sensor before "no return" counts: one alone may be a dropout
+  slot_mark_min_log_odds: 2.2 # inside the selected slot, a mark blocks the planner only from this up: four returns, the path check's level. Arcs merely crossing make one or two
+  camera_min_move_m: 0.2      # m a camera moves before it adds evidence again
+  assumed_slot_margin_m: 0.3  # m around the selected slot that the planner may enter unseen. Parked cars stand about 0.375 m off a stall line
+  max_paint_segments: 3000    # segments kept, for display only
+  snapshot_period_s: 1.0      # s between copies of the map for /sensed_map; one is also kept at each plan
+  path_check:                 # stop if the map gets something on the path being driven; docs/sensed_map.md
+    enabled: true
+    horizon_m: 3.0            # m of path ahead to check. Needs to be past the stop distance, about 0.9 m from 1 m/s
+    period_s: 0.1             # s between checks; the map only changes as the car moves
+    sweep_step_m: 0.2         # m between swept footprints
+    lateral_margin_m: 0.1     # m around the body, sideways
+    end_margin_m: 0.1         # m around the body, front and rear
+    min_log_odds: 2.2         # a cell counts from this up: four returns. Where arcs merely cross, it usually takes one or two
+    min_cells: 2              # cells in the sweep to call the path blocked. A thin post only builds strong evidence where its arcs cross, so keep this low
+    confirm_checks: 3         # checks in a row, 0.3 s
+
+controller:
+  dt: 0.02                    # 50 Hz, matches acc_state_node rate
+  lookahead_min: 1.0          # m
+  lookahead_gain: 1.0         # s, Ld = max(min, gain*|v|)
+  cusp_slowdown_dist: 1.0     # m, ramp speed down approaching a cusp or the goal
+  min_creep_speed: 0.15       # m/s
+  steer_slew_window_m: 1.0    # m [est] slow down so a steering change the plan asks for fits in this distance. Smaller = slower
+  stop_tol: 0.02              # m remaining on a segment to call it done
+  timeout_s: 120.0
+
+criteria:
+  lateral_tol: 0.15           # m from stall centerline
+  heading_tol_deg: 2.0
+  depth_tol: 0.20             # m from target depth
+  min_clearance: 0.30         # m to any obstacle, whole run
+  max_gear_changes: 3
+  max_speed_kph: 5.0
+  max_time_s: 60.0
+
+supervisor:                   # park_sim/supervisor.py; rules in docs/supervisor.md
+  search_speed_max: 20.0      # km/h, feature button only works below this
+  maneuver_speed_max: 5.0     # km/h, abort above this (same as the pass criterion)
+  standstill_speed: 0.02      # m/s [est] "stopped" (same as the controller's segment-end check)
+  resume_delay_s: 1.0         # s clear before a pause can end
+  driver_override_nm: 2.0     # Nm, abort above this
+  accelerator_override: 0.05  # pedal 0-1, abort above this
+  brake_pressed: 0.05         # pedal 0-1 [est] pause above this
+  max_time_s: 60.0            # s from maneuver start, pauses included (same as the pass criterion)
+  max_gear_changes: 3         # abort above this (same as the pass criterion)
+  planning_timeout_s: 2.0     # s, treated as no path
+  replan_after_s: 5.0         # s [est] blocked by an obstacle this long: ask for a replan, and again every this long
+  abort_after_s: 20.0         # s [est] blocked by an obstacle this long: abort
+  sensor_timeouts_s:          # s, abort if a sensor's last update is older, or it is missing
+    localization: 0.2         # [est]
+    wheel_speed: 0.1          # [est]
+    slot_perception: 0.5      # [est]
+
+safety:                       # park_sim/safety.py, docs/safety.md; every number [est]
+  enabled: auto               # auto = on for runs with actors or injected faults | true | false
+  sweep_step_m: 0.2           # m between swept footprints
+  lateral_margin_m: 0.1       # m around the swept body, sideways. Parked neighbors sit about 0.3 m off, so not much more
+  end_margin_m: 0.3           # m around the swept body, front and rear
+  standoff_m: 0.8             # m the sweep reaches past the stop distance
+  sensor_latency_s: 0.15      # s from an obstacle being there to the monitor acting (reading period, two hits)
+  ttc_emergency_s: 0.6        # s, emergency brake below this
+  confirm_hits: 2             # consecutive readings from a sensor before its return counts
+  clear_readings: 3           # consecutive readings saying "nothing there" before a return is forgotten
+  hit_gate_m: 0.5             # m, a reading this near the last one is the same object
+  clear_tolerance_m: 0.2      # m, another sensor reading this far past a held point says it is gone
+  arc_samples: 13             # points along an ultrasonic reading's arc; all must be in the sweep...
+  close_range_m: 0.6          # m, ...except nearer than this, where any one will do
+  max_blocked_replans: 2      # accepted per run; separate from slot_detection.refinement.max_replans
+  replan_time_limit_s: 2.0    # s wall clock
+  watchdog:
+    ultrasonic_max_age_s: 0.3 # s, added to sensor_timeouts_s per ultrasonic sensor when the monitor runs
+    lidar_max_age_s: 0.5      # s, the same for the lidar
+    steer_error_deg: 3.0      # deg, command vs. actual road-wheel angle
+    steer_stuck_rate_deg_s: 2.0   # deg/s, an actual angle moving slower than this is not following
+    steer_fault_time_s: 0.5   # s, that long with both true reports the steering unhealthy
+
+actors:                       # park_sim/actors.py; config/scenarios/ scripts them. Every number [est]
+  pedestrian:
+    diameter_m: 0.5           # circle
+    polygon_sides: 12         # the circle as sensors and collision checks see it
+    speed_range_mps: [0.5, 1.5]
+    yield_gap_m: 0.6          # m, looks this far ahead for the car; 0 = walks into it
+    yield_side_m: 0.6         # m, won't head anywhere nearer the car than this
+  vehicle:
+    length_m: 4.9
+    width_m: 1.95
+    speed_range_kph: [5.0, 15.0]
+    yield_gap_m: 1.5          # m, its driver looks this far ahead for the car; 0 = drives into it
+    yield_side_m: 0.3         # m, room its driver needs to squeeze past the car
+
+foxglove:                    # MCAP export appearance (park_sim/mcap_export.py); no effect on the sim
+  trail_publish_every: 5      # ticks between /trail messages (10 Hz at dt = 0.02); keeps file size linear
+  trail_min_spacing: 0.05     # m between stored trail points
+  parked_car_height: 1.5      # m [est] generic sedan/SUV, display only
+  curb_height: 0.15           # m [est] display only
+  line_thickness: 0.06        # m, stall lines and goal outline
+  path_thickness: 0.07        # m, plan and trail
+  cusp_diameter: 0.4          # m
+  lookahead_diameter: 0.3     # m
+  lookahead_roof_gap: 0.1     # m above the roof so the marker stays visible from the top-down camera
+  slot_height: 0.02           # m, detected-slot fill
+  slot_label_size: 0.8        # m
+  sensor_line_thickness: 0.08 # m, detected segments
+  footprint_line_thickness: 0.03  # m, camera footprints
+  cone_line_thickness: 0.02   # m, ultrasonic cone outline
+  cone_arc_thickness: 0.08    # m, ultrasonic range arc
+  cone_arc_points: 12         # points along an ultrasonic cone's arc
+  pedestrian_height: 1.7      # m [est] display only
+  actor_vehicle_height: 1.5   # m [est] display only
+  pillar_height: 3.0          # m [est] display only
+  cart_height: 1.0            # m [est] display only
+  sweep_line_thickness: 0.03  # m, swept footprints
+  paint_line_thickness: 0.04  # m, painted segments on /sensed_map
+  search_line_thickness: 0.03 # m, /planner_search explored tree and shots
+  search_best_thickness: 0.09 # m, /planner_search current best branch
+  z:                          # m, draw order of the flat layers (avoids z-fighting)
+    search_tree: 0.035
+    search_shots: 0.036
+    search_best: 0.037
+    search_path: 0.038
+    sensed_map: 0.005
+    sweep: 0.09
+    target_stall: 0.01
+    stall_lines: 0.02
+    goal: 0.03
+    plan: 0.04
+    trail: 0.05
+    slots: 0.015
+    slot_label: 0.1
+    footprint: 0.06
+    sensor_lines: 0.07
+    cones: 0.08
+    lidar: 0.3
+  colors:                     # RGBA, 0-1
+    stall_lines: [0.60, 0.63, 0.65, 1.0]
+    parked_car: [0.37, 0.39, 0.41, 1.0]
+    curb: [0.60, 0.63, 0.65, 1.0]
+    target_stall: [0.09, 0.50, 0.22, 0.25]
+    goal: [0.09, 0.70, 0.30, 1.0]
+    plan_forward: [0.10, 0.45, 0.91, 1.0]
+    plan_reverse: [0.73, 0.33, 0.96, 1.0]
+    cusp: [0.98, 0.74, 0.02, 1.0]
+    ego: [0.91, 0.44, 0.04, 0.55]
+    trail: [0.91, 0.44, 0.04, 1.0]
+    lookahead: [0.95, 0.20, 0.20, 1.0]
+    slot_detected: [0.10, 0.45, 0.91, 0.30]
+    slot_selected: [0.09, 0.50, 0.22, 0.45]
+    slot_label: [0.95, 0.96, 0.97, 1.0]
+    camera_footprint: [0.40, 0.75, 0.95, 0.6]
+    camera_segment: [0.15, 0.90, 0.95, 1.0]
+    false_segment: [0.95, 0.45, 0.75, 1.0]
+    cone_clear: [0.55, 0.60, 0.65, 0.35]
+    cone_hit: [0.98, 0.74, 0.02, 1.0]
+    pedestrian: [0.95, 0.20, 0.60, 1.0]
+    actor_vehicle: [0.55, 0.25, 0.85, 1.0]
+    pillar: [0.80, 0.78, 0.70, 1.0]
+    cart: [0.95, 0.60, 0.10, 1.0]
+    sweep_clear: [0.20, 0.80, 0.40, 0.8]
+    sweep_blocked: [0.95, 0.15, 0.15, 1.0]
+    map_free: [0.20, 0.55, 0.45, 0.25]
+    map_occupied: [0.90, 0.20, 0.15, 0.85]
+    map_assumed: [0.95, 0.80, 0.20, 0.35]
+    map_paint: [0.95, 0.96, 0.97, 0.8]
+    search_tree: [0.45, 0.75, 0.95, 0.45]
+    search_best: [0.98, 0.74, 0.02, 1.0]
+    search_shot_free: [0.20, 0.90, 0.40, 1.0]
+    search_shot_blocked: [0.95, 0.35, 0.30, 0.6]
+    search_path: [0.20, 0.90, 0.40, 1.0]
+
+interactive:                  # scripts/interactive.py, park_sim/hmi.py, docs/interactive.md; every number [est]
+  max_speed_kph: 15.0         # km/h, the most the keys can drive forward (the feature needs under supervisor.search_speed_max)
+  max_reverse_kph: 5.0        # km/h, the same in reverse
+  speed_change_mps2: 1.5      # m/s^2, how fast the up and down keys change the speed you're asking for
+  steer_rate_deg_s: 30.0      # deg/s of road-wheel angle while a steering key is held
+  steer_return_deg_s: 45.0    # deg/s back to straight once it's released
+  retry_after_driven_m: 1.0   # m a stall with no path can be picked again once the car has moved this far
+  takeover_torque_nm: 5.0     # Nm, what the takeover key puts on the wheel (the override limit is supervisor.driver_override_nm)
+  redraw_hz: 50.0             # frames a second at most, the sim's own rate
+  draw_gap_factor: 0.8        # the gap after a frame, as a share of how long it took to draw. The sim runs in the gap
+  timeout_s: 1800.0           # s, a whole hand-driven run, in place of search.timeout_s
+  zoom_half_width_m: 18.0     # m either side of the car in the zoomed view
+  units: imperial             # imperial | metric, what the window starts in. The U key switches. Metric matches Foxglove (m/s, m)
+  resync_after_s: 0.25        # s behind real time (a plan, say) before the clock gives up catching up
+  sessions_dir: out/hmi_sessions    # each run's inputs and MCAP
+
+live:                         # scripts/run_live.py, park_sim/live.py, docs/live.md; display only, no effect on a run's result
+  port: 8765                  # --port default. The address isn't here: it binds to 127.0.0.1 only, always
+  speed: 1.0                  # --speed default: times real time
+  server_name: ecocar_park_sim
+  message_backlog_size: 8192  # messages buffered per client before the oldest are dropped
+  max_lag_s: 0.5              # s behind the playback clock before giving up on catching up
+  overview_every_ticks: 5     # ticks between /overview messages (10 Hz at dt = 0.02)
+  overview_transitions: 8     # how many of the latest transitions /overview lists
+  idle_poll_s: 0.1            # s between checks for new subscribers once the run is over
+  search_expansions_per_frame: 1   # expansions in each displayed frame of a search replay
+  search_frame_s: 0.05        # s per displayed frame of a search replay, at --speed 1
+  search_hold_s: 1.0          # s the finished search stays on screen before the run carries on, at --speed 1
+  search_shots_shown: 6       # analytic shots drawn per frame, the latest ones

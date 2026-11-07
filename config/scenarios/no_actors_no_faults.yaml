@@ -1,0 +1,6 @@
+name: no_actors_no_faults
+description: The plain run. The safety layer stays off, so this is what the baseline and search Monte Carlos measure.
+flows: [single_stall, search]
+expect:
+  outcome: completed
+  meets_criteria: true

@@ -1,0 +1,13 @@
+name: cart_in_stall
+description: >
+  A shopping cart in an otherwise free target stall, where the body would go. The planner doesn't know it and the stall
+  is marked free, so sensors have to catch it. It must never be parked on: refused, or aborted cleanly.
+flows: [search]
+overrides:
+  safety: {enabled: true}
+obstacles:
+  - {kind: cart, known_to_planner: false}
+expect:     # set before measuring
+  outcome_any_of: [parked_elsewhere, no_slot, no_path, aborted]
+  contacts: 0
+  completed_meets_criteria: true
